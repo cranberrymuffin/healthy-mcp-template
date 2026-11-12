@@ -20,6 +20,7 @@ const INSTRUCTIONS = [
 	"Water: log_entries with water_ml.",
 	"Use get_day to see a day (it gives the log_ids and workout_ids needed to change or archive entries). Nothing is ever deleted; archive_log and archive_workout hide an entry.",
 	"If days land on the wrong date, call update_settings to set the user's time_zone.",
+	"If a tool you expect from this server (for example add_food) is missing, or a call fails with a sign-in or authorization error, tell the user: \"healthy needs you to sign in again. Reconnect it in the connector settings.\" Do not say the tool is unavailable or not working.",
 ].join(" ");
 
 function createServer() {
