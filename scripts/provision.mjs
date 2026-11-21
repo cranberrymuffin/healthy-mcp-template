@@ -85,11 +85,13 @@ export async function ensureKv(call, title) {
 	return { id: (await call("POST", "/storage/kv/namespaces", { title })).result.id, created: true };
 }
 
-/** wrangler.jsonc (parsed) -> the config to deploy with: your names, resource ids and public address. */
-export function buildDeployConfig(base, { names, d1Id, kvId, url }) {
+/** wrangler.jsonc (parsed) -> the config to deploy with: your names, resource ids, the Worker's public URL (MCP_RESOURCE) and the commit. */
+export function buildDeployConfig(base, { names, d1Id, kvId, url, commit }) {
 	const config = structuredClone(base);
 	config.name = names.worker;
 	config.vars = { ...config.vars, MCP_RESOURCE: `${url}/mcp` };
+	// The commit this deploy was built from (GITHUB_SHA in GitHub Actions), so get_server_version can say what is running. Public, not a secret.
+	if (/^[0-9a-f]{7,64}$/.test(commit ?? "")) config.vars.GIT_SHA = commit;
 	const kv = config.kv_namespaces?.find((k) => k.binding === "OAUTH_KV");
 	const d1 = config.d1_databases?.find((d) => d.binding === "DB");
 	if (!kv || !d1) throw new Error("wrangler.jsonc must have an OAUTH_KV and a DB binding.");
@@ -116,7 +118,7 @@ export async function provision({ env, fetchFn = fetch, read = (p) => fs.readFil
 	const kv = await ensureKv(call, names.kv);
 	log(`KV namespace ${names.kv}: ${kv.created ? "created" : "already exists"}`);
 
-	const config = buildDeployConfig(parseJsonc(read("wrangler.jsonc")), { names, d1Id: d1.id, kvId: kv.id, url });
+	const config = buildDeployConfig(parseJsonc(read("wrangler.jsonc")), { names, d1Id: d1.id, kvId: kv.id, url, commit: env.GITHUB_SHA });
 	write(".wrangler-deploy.json", JSON.stringify(config, null, 2) + "\n");
 	log("Wrote .wrangler-deploy.json");
 	return { names, d1, kv, config };

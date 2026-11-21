@@ -1,8 +1,8 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { findOrCreateUser, setTargets } from "../src/data";
+import { findOrCreateUser, setDailyTargetMetrics } from "../src/data";
 import { getDay } from "../src/services/logs";
-import { listFoods, logFood } from "./helpers";
+import { listFoods, logFood, spec } from "./helpers";
 import { archiveWorkout, logWorkout, updateWorkout } from "../src/services/workouts";
 
 const db = env.DB;
@@ -43,7 +43,7 @@ describe("water and dessert", () => {
 		expect(water).toMatchObject({ kcal: 0, protein_g: 0, fat_g: 0, carbs_g: 0 });
 	});
 	it("water is counted in ml against the water target, and adds no calories", async () => {
-		await setTargets(db, a, { water_ml: 2500 });
+		await setDailyTargetMetrics(db, a, { water_ml: spec(2500, "at_least") });
 		await logFood(db, a, { date: "2026-03-10", meal_type: "water", food_id: aWater, grams: 500 });
 		await logFood(db, a, { date: "2026-03-10", meal_type: "water", food_id: aWater, grams: 250.4 });
 		await logFood(db, a, { date: "2026-03-10", meal_type: "water", food_id: aWater, grams: 300, eaten: false });
@@ -51,6 +51,13 @@ describe("water and dessert", () => {
 		expect(day.totals.water_ml).toBe(750.4);
 		expect(day.totals.remaining.water_ml).toBe(1749.6);
 		expect(day.totals.eaten.kcal).toBe(0);
+	});
+	it("a workout counts toward the workout_kcal_burned target in get_day", async () => {
+		await setDailyTargetMetrics(db, a, { workout_kcal_burned: spec(500, "at_least") });
+		await logWorkout(db, a, { client_request_id: "wk-kcal-0001", type: "run", duration_minutes: 30, kcal_burned: 320, intensity: "moderate", source: "reported", date: "2026-03-12" });
+		const day = await getDay(db, a, "2026-03-12");
+		expect(day.totals.workout_kcal_burned).toBe(320);
+		expect(day.totals.remaining.workout_kcal_burned).toBe(180);
 	});
 	it("a day with no water shows 0 and a dessert is a valid meal type", async () => {
 		expect((await getDay(db, b, "2026-03-11")).totals.water_ml).toBe(0);

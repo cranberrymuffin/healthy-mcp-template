@@ -1,5 +1,6 @@
 // Fakes for the food APIs (tests never touch the network) and a one-food logging shortcut.
 import type { Food } from "../src/data";
+import type { Direction, TargetSpec } from "../src/nutrition";
 import { getDay, logEntries } from "../src/services/logs";
 import offProductFx from "./fixtures/off-product.json";
 import offSearchFx from "./fixtures/off-search.json";
@@ -55,3 +56,6 @@ export async function logFood(db: D1Database, userId: string, input: { meal_type
 	const log = (await getDay(db, userId, r.day.date)).food_logs.find((l) => l.log_id === r.log_ids[0])!;
 	return { log_id: log.log_id, meal_type: log.meal_type, food_name: log.food_name, grams: log.grams, nutrients: log.nutrients, day: r.day };
 }
+
+/** A target for tests: the number, with the default tolerance unless one is given. */
+export const spec = (target: number, direction: Direction = "around", tolerance_pct: number | null = null): TargetSpec => ({ target, tolerance_pct, direction });

@@ -2,11 +2,11 @@
 // Input shape (types, ranges, lengths) is validated by the zod schemas in src/tools/; this file holds the rules that need the database.
 // Logs hold a pointer and an amount in grams; nutrients are calculated here.
 import {
-	createFoodLogsAtomically, DataError, archiveFoodLog, findRequest, findWaterFood, getFoodLog, getFoodsByIds, getTargets, listDayFoodLogs, listWorkoutsForDate,
+	createFoodLogsAtomically, DataError, archiveFoodLog, findRequest, findWaterFood, getFoodLog, getFoodsByIds, getDailyTargetMetrics, listDayFoodLogs, listWorkoutsForDate,
 	updateFoodLog as dbUpdateFoodLog, type DayFoodRow, type MealType, type NewFoodLog, type UserId,
 } from "../data";
 import { dayTotals, mindfulnessFromStored, mindfulnessToStored, NUTRIENT_KEYS, roundNutrients, scale, type DayEntry, type DayTotals, type NutrientValues } from "../nutrition";
-import { isValidDate, localDate, localNoonUtc } from "../time";
+import { isValidDate, localDate, localIso, localNoonUtc } from "../time";
 
 import { fail, userTimeZone } from "./common";
 import { workoutView } from "./workouts";
@@ -50,26 +50,26 @@ const shownScore = (s: number | null) => (s == null ? null : mindfulnessFromStor
 
 const foodValues = (r: DayFoodRow): NutrientValues => Object.fromEntries(NUTRIENT_KEYS.map((k) => [k, r[k]])) as unknown as NutrientValues;
 
-function foodLogView(r: DayFoodRow) {
+function foodLogView(r: DayFoodRow, tz: string) {
 	return {
 		log_id: r.id, meal_type: r.meal_type, food_id: r.food_id, food_name: r.food_name, grams: r.grams, note: r.note,
-		eaten: r.eaten === 1, mindfulness_score: shownScore(r.mindfulness_score), eaten_at: r.eaten_at,
+		eaten: r.eaten === 1, mindfulness_score: shownScore(r.mindfulness_score), eaten_at: localIso(new Date(r.eaten_at), tz),
 		nutrients: roundNutrients(scale(foodValues(r), r.grams)),
 	};
 }
 export async function getDay(db: D1Database, userId: UserId, date?: string) {
-	// The time zone is only needed to work out "today", so a call with a date skips that query.
-	const day = date ?? localDate(new Date(), await userTimeZone(db, userId));
+	const tz = await userTimeZone(db, userId); // "today" and each food's local eaten time follow it
+	const day = date ?? localDate(new Date(), tz);
 	if (!isValidDate(day)) throw fail("Date must be YYYY-MM-DD.", "date");
 
-	const [rows, targets, workouts] = await Promise.all([listDayFoodLogs(db, userId, day), getTargets(db, userId), listWorkoutsForDate(db, userId, day)]);
+	const [rows, targets, workouts] = await Promise.all([listDayFoodLogs(db, userId, day), getDailyTargetMetrics(db, userId), listWorkoutsForDate(db, userId, day)]);
 	const entries: DayEntry[] = rows.map((r) => ({ eaten: r.eaten === 1, nutrients: scale(foodValues(r), r.grams) }));
 	const waterMl = rows.filter((r) => r.meal_type === "water" && r.eaten === 1).reduce((sum, r) => sum + r.grams, 0); // 1 g of water = 1 ml
-	const totals: DayTotals = dayTotals(day, entries, targets, waterMl);
+	const totals: DayTotals = dayTotals(day, entries, targets, waterMl, workouts.reduce((s, w) => s + w.kcal_burned, 0));
 	// Average mindfulness (1 to 10) over the eaten, non-water entries that have a score; null if none.
 	const scored = rows.filter((r) => r.eaten === 1 && r.meal_type !== "water" && r.mindfulness_score != null);
 	const mindfulness_avg = scored.length === 0 ? null : mindfulnessFromStored(scored.reduce((s, r) => s + r.mindfulness_score!, 0) / scored.length);
-	return { date: day, food_logs: rows.map(foodLogView), workouts: workouts.map(workoutView), totals, mindfulness_avg };
+	return { date: day, food_logs: rows.map((r) => foodLogView(r, tz)), workouts: workouts.map(workoutView), totals, mindfulness_avg };
 }
 
 async function logResult(db: D1Database, userId: UserId, logId: string, date: string) {

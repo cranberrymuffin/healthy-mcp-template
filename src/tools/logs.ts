@@ -3,17 +3,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { MEAL_TYPES } from "../data";
 import { archiveLog, getDay, logEntries, updateLog } from "../services/logs";
+import { dayReply, jsonOf } from "./replies";
 import { ADDS_ONCE, CHANGES, date, leftSummary, nut, READS, respond, type ToolContext } from "./shared";
-
-function daySummary(r: Awaited<ReturnType<typeof getDay>>) {
-	const foods = r.food_logs.map((l) => `- ${l.meal_type}: ${l.grams} g ${l.food_name} (${l.eaten ? "eaten" : "planned"}) ${nut(l.nutrients)}${l.mindfulness_score == null ? "" : `, mindfulness ${l.mindfulness_score}/10`} [log_id=${l.log_id}]`);
-	const workouts = r.workouts.map((w) => `- workout: ${w.duration_minutes} min ${w.intensity} ${w.type}, ${w.kcal_burned} kcal burned${w.source === "estimate" ? " (estimated)" : ""}${w.note ? ` (${w.note})` : ""} [workout_id=${w.workout_id}]`);
-	const e = r.totals.eaten;
-	const n = r.food_logs.length;
-	const head = `${n} food entr${n === 1 ? "y" : "ies"} and ${r.workouts.length} workout${r.workouts.length === 1 ? "" : "s"} on ${r.date}.`;
-	const eaten = `Eaten: ${nut(e)}, ${e.sugar_g} g sugar (${e.added_sugar_g} added), ${e.saturated_fat_g} g saturated fat, ${e.trans_fat_g} g trans fat, ${e.cholesterol_mg} mg cholesterol, ${e.sodium_mg} mg sodium, ${r.totals.water_ml} ml water${"water_ml" in r.totals.remaining ? ` (${r.totals.remaining.water_ml} ml left of the ${r.totals.targets.water_ml} ml goal)` : ""}.${r.mindfulness_avg == null ? "" : ` Mindfulness: ${r.mindfulness_avg}/10 on average.`}`;
-	return [head, ...foods, ...workouts, eaten, leftSummary(r.totals)].join("\n");
-}
 
 export function registerLogTools(server: McpServer, { userId, db }: ToolContext) {
 	const mealType = z.enum(MEAL_TYPES);
@@ -100,10 +91,10 @@ export function registerLogTools(server: McpServer, { userId, db }: ToolContext)
 		"get_day",
 		{
 			title: "Get a day",
-			description: "One day's food logs (each with meal_type and log_id), workouts (each with workout_id) and totals: eaten, planned, water (with what is left of the water goal), mindfulness scores (each entry's, and the day's average) and targets and what is left. Defaults to today in the user's time zone.",
+			description: "One day as JSON: food_logs (each with meal_type, log_id, food_name, grams, nutrients, eaten true or false, and eaten_at, the time it was eaten on the user's clock with its UTC offset), workouts (each with workout_id) and totals: eaten, planned, water (with what is left of the water goal), mindfulness scores (each entry's, and the day's average) and targets and what is left. Defaults to today in the user's time zone. Reply (JSON, no data wrapper): { date, food_logs: [...], workouts: [...], totals: { date, eaten, planned, targets, remaining, water_ml, workout_kcal_burned }, mindfulness_avg }.",
 			inputSchema: z.object({ date: date.optional().describe("Defaults to today in the user's time zone.") }).strict(),
 			annotations: READS,
 		},
-		(input) => respond(() => getDay(db, userId, input.date), daySummary),
+		(input) => respond(() => getDay(db, userId, input.date), jsonOf(dayReply)),
 	);
 }
