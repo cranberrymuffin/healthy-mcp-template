@@ -5,7 +5,7 @@
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'ui-sans-serif, system-ui, sans-serif', 'fontSize': '14px', 'lineColor': '#64748b', 'primaryColor': '#fef3c7', 'primaryBorderColor': '#d97706', 'primaryTextColor': '#78350f', 'secondaryColor': '#fffbeb', 'tertiaryColor': '#fffbeb', 'attributeBackgroundColorOdd': '#fffbeb', 'attributeBackgroundColorEven': '#fef3c7'}}}%%
 erDiagram
-    users ||--o| targets : "has one"
+    users ||--o{ daily_target_metrics : "has many"
     users ||--o{ foods : owns
     users ||--o{ food_logs : owns
     users ||--o{ workouts : owns
@@ -20,17 +20,14 @@ erDiagram
         text time_zone "IANA name"
         text created_at
     }
-    targets {
+    daily_target_metrics {
         text user_id PK, FK
-        int kcal
-        int protein_g
-        int fat_min_g
-        int fat_max_g
-        int carbs_g
-        int fiber_g
-        int sodium_max_mg
-        int water_ml
+        text metric PK "kcal, protein_g, fat_g, ..."
+        real target "above 0"
+        real tolerance_pct "empty = default 10"
+        text direction "at_least, at_most or around"
         text updated_at
+        text archived_at "empty while active"
     }
     foods {
         text id PK
@@ -106,6 +103,7 @@ Values worth knowing:
 - `foods.source`: label, usda, off, estimate or recipe. A food with even one estimated nutrient has source `estimate`. A saved meal is a food with `kind` `meal`, and its `serving_g` is the whole meal's weight. A meal made from saved foods lists its ingredients in `notes`.
 - `food_logs.meal_type`: breakfast, lunch, dinner, snack, dessert or water (for water, grams are millilitres).
 - `food_logs.mindfulness_score`: stored as 0 to 1, shown as 1 to 10.
+- `daily_target_metrics.metric`: kcal, protein_g, fat_g, carbs_g, fiber_g, sugar_g, added_sugar_g, sodium_mg, water_ml or workout_kcal_burned (calories burned by a day's workouts; at least by default, and left out of the setup questions). A metric with no row, or an archived one, has no target; setting it again brings it back. The old one-row `targets` table is dropped by migration `0002`.
 - `workouts.type`: run, walk, cycle, swim, strength, yoga, hiit or other.
 - `workouts.source`: reported when the user gave the calories burned and intensity, estimate when Claude estimated either one.
 

@@ -1,8 +1,8 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createFood, findOrCreateUser, setTargets } from "../src/data";
+import { createFood, findOrCreateUser, setDailyTargetMetrics } from "../src/data";
 import { archiveLog, getDay, logEntries, updateLog } from "../src/services/logs";
-import { logFood } from "./helpers";
+import { logFood, spec } from "./helpers";
 
 const db = env.DB;
 const yogurt = { name: "Greek yogurt", kcal: 57, protein_g: 10.1, fat_g: 0, carbs_g: 4, fiber_g: 0, sugar_g: 4, added_sugar_g: 0, saturated_fat_g: 0, trans_fat_g: 0, cholesterol_mg: 5, sodium_mg: 36, source: "label" as const };
@@ -27,7 +27,7 @@ describe("log_entries", () => {
 		expect(r.day.date).toBe("2026-01-10");
 	});
 	it("adds up the day across entries, and remaining uses targets", async () => {
-		await setTargets(db, a, { kcal: 2200, protein_g: 180 });
+		await setDailyTargetMetrics(db, a, { kcal: spec(2200), protein_g: spec(180, "at_least") });
 		await logFood(db, a, { date: "2026-01-11", meal_type: "breakfast", food_id: aYogurt, grams: 227 });
 		const r = await logFood(db, a, { date: "2026-01-11", meal_type: "breakfast", food_id: aOats, grams: 54 });
 		expect(r.day.eaten.kcal).toBe(Math.round(57 * 2.27 + 389 * 0.54));
@@ -40,7 +40,7 @@ describe("log_entries", () => {
 describe("time rules", () => {
 	it("date only: noon that day in the user's time zone", async () => {
 		await logFood(db, a, { date: "2026-01-15", meal_type: "lunch", food_id: aYogurt, grams: 100 });
-		expect((await getDay(db, a, "2026-01-15")).food_logs[0].eaten_at).toBe("2026-01-15T17:00:00.000Z"); // default zone New York, EST
+		expect((await getDay(db, a, "2026-01-15")).food_logs[0].eaten_at).toBe("2026-01-15T12:00:00-05:00"); // default zone New York, EST: 17:00 UTC on the user's clock
 	});
 	it("eaten_at: the day comes from the user's zone, not UTC", async () => {
 		// 02:30 UTC on Jan 17 is still the evening of Jan 16 in New York

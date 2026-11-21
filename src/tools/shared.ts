@@ -7,6 +7,8 @@ export interface ToolContext {
 	userId: string;
 	db: D1Database;
 	clients: FoodApiClients;
+	/** The deployed commit (GIT_SHA), for get_server_version. */
+	commit?: string;
 }
 
 export const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").describe("A calendar day, YYYY-MM-DD, in the user's time zone. Example: 2026-03-14.");
@@ -42,5 +44,6 @@ export function leftSummary(day: { eaten: { kcal: number; protein_g: number; fat
 	const parts = [`Day total so far: ${nut(day.eaten)}.`];
 	if ("kcal" in day.remaining) parts.push(`${day.remaining.kcal} kcal left.`);
 	if ("protein_g" in day.remaining) parts.push(`${day.remaining.protein_g} g protein left.`);
+	if ("workout_kcal_burned" in day.remaining) parts.push(`${day.remaining.workout_kcal_burned} kcal left to burn.`);
 	return parts.join(" ");
 }

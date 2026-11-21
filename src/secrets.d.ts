@@ -10,3 +10,9 @@ interface Env extends WorkerSecrets {}
 declare namespace Cloudflare {
 	interface Env extends WorkerSecrets {}
 }
+
+// Markdown files are bundled as text (the "rules" entry in wrangler.jsonc).
+declare module "*.md" {
+	const text: string;
+	export default text;
+}

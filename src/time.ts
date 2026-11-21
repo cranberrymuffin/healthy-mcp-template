@@ -41,3 +41,39 @@ export function localToUtc(date: string, hour: number, minute: number, tz: strin
 
 /** Noon on a local day, as an ISO UTC string. Used when a log has a date but no time. */
 export const localNoonUtc = (date: string, tz: string) => localToUtc(date, 12, 0, tz).toISOString();
+
+/** The day n days after (or before, if negative) a YYYY-MM-DD day. */
+export function addDays(date: string, n: number): string {
+	const d = new Date(`${date}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + n);
+	return d.toISOString().slice(0, 10);
+}
+
+/** The Monday of the week a day is in. Weeks run Monday to Sunday. */
+export function mondayOf(date: string): string {
+	return addDays(date, -((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7));
+}
+
+/** The first day of the month a day is in, moved by `months` (negative goes back). */
+export function monthStart(date: string, months = 0): string {
+	const [y, m] = date.split("-").map(Number);
+	return new Date(Date.UTC(y, m - 1 + months, 1)).toISOString().slice(0, 10);
+}
+
+/** The last day of the month a day is in. */
+export const monthEnd = (date: string) => addDays(monthStart(date, 1), -1);
+
+/** The hour (0 to 23) on the wall clock in `tz` at an instant. */
+export function localHour(instant: Date, tz: string): number {
+	return Number(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", hour: "2-digit" }).format(instant));
+}
+
+/** An instant as ISO 8601 on the wall clock in `tz`, with its offset, for example 2026-03-14T08:30:00-05:00. */
+export function localIso(instant: Date, tz: string): string {
+	const off = offsetMs(tz, instant.getTime());
+	const sign = off < 0 ? "-" : "+";
+	const mins = Math.abs(off) / 60000;
+	const hh = String(Math.floor(mins / 60)).padStart(2, "0");
+	const mm = String(mins % 60).padStart(2, "0");
+	return `${new Date(instant.getTime() + off).toISOString().slice(0, 19)}${sign}${hh}:${mm}`;
+}

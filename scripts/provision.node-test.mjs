@@ -99,6 +99,14 @@ test("the real wrangler.jsonc parses and yields a complete deploy config", async
 	assert.ok(!JSON.stringify(cfg).includes("REPLACED_BY_PROVISION"));
 });
 
+test("the deployed commit goes into the config vars, only when it looks like a hash", () => {
+	const base = parseJsonc(wranglerText);
+	const args = { names: namesFor("demo"), d1Id: "d", kvId: "k", url: "https://demo.me.workers.dev" };
+	assert.equal(buildDeployConfig(base, { ...args, commit: "8867022855e394141aab349449647d5231d1958c" }).vars.GIT_SHA, "8867022855e394141aab349449647d5231d1958c");
+	assert.equal(buildDeployConfig(base, args).vars.GIT_SHA, undefined);
+	assert.equal(buildDeployConfig(base, { ...args, commit: "not a hash" }).vars.GIT_SHA, undefined);
+});
+
 test("a workers.dev address that does not start with APP_NAME is refused, a custom domain is not", async () => {
 	await assert.rejects(run(fakeApi(), { WORKER_URL: "https://other.me.workers.dev" }), /must start with the APP_NAME/);
 	await run(fakeApi(), { WORKER_URL: "https://health.example.com" });

@@ -2,9 +2,9 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
 	createFood, createFoodLog, createWorkout, DataError, archiveFoodLog, archiveWorkout, findOrCreateUser,
-	getFood, getFoodLog, getTargets, getTimeZone, listWorkoutsForDate, searchFoods, setTargets, updateWorkout,
+	getFood, getFoodLog, getDailyTargetMetrics, getTimeZone, listWorkoutsForDate, searchFoods, setDailyTargetMetrics, updateWorkout,
 } from "../src/data";
-import { listFoods, REST } from "./helpers";
+import { listFoods, REST, spec } from "./helpers";
 
 const db = env.DB;
 const yogurt = { name: "Greek yogurt", brand: "Fage", kcal: 57, protein_g: 10.1, fat_g: 0, carbs_g: 4, ...REST, source: "label" as const };
@@ -20,7 +20,7 @@ beforeAll(async () => {
 	b = (await findOrCreateUser(db, { provider: "github", subject: "1002" })).id;
 	aFood = (await createFood(db, a, yogurt)).id;
 	aLog = (await createFoodLog(db, a, { date: "2026-11-02", meal_type: "breakfast", food_id: aFood, grams: 150 })).id;
-	await setTargets(db, a, { kcal: 2200, protein_g: 180 });
+	await setDailyTargetMetrics(db, a, { kcal: spec(2200), protein_g: spec(180, "at_least") });
 	aWorkout = (await createWorkout(db, a, { date: "2026-11-02", type: "run", duration_minutes: 30, kcal_burned: 300, intensity: "moderate", source: "estimate" }, crypto.randomUUID())).id;
 });
 
@@ -62,8 +62,8 @@ describe("user separation: user B cannot see or change user A's rows", () => {
 		).rejects.toThrow();
 	});
 	it("targets", async () => {
-		expect(await getTargets(db, b)).toBeNull();
-		expect((await getTargets(db, a))?.kcal).toBe(2200);
+		expect(await getDailyTargetMetrics(db, b)).toBeNull();
+		expect((await getDailyTargetMetrics(db, a))?.kcal?.target).toBe(2200);
 	});
 	it("workouts", async () => {
 		expect(await listWorkoutsForDate(db, b, "2026-11-02")).toEqual([]);
@@ -87,7 +87,7 @@ describe("account deletion", () => {
 		await createFoodLog(db, c, { date: "2026-11-02", meal_type: "lunch", food_id: f.id, grams: 100 });
 		await db.prepare("DELETE FROM foods_fts WHERE user_id = ?").bind(c).run();
 		await db.prepare("DELETE FROM users WHERE id = ?").bind(c).run();
-		for (const t of ["foods", "food_logs", "targets", "workouts"]) {
+		for (const t of ["foods", "food_logs", "daily_target_metrics", "workouts"]) {
 			const r = await db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE user_id = ?`).bind(c).first<{ n: number }>();
 			expect(r?.n).toBe(0);
 		}

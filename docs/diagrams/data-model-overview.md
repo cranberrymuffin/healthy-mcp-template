@@ -1,19 +1,19 @@
 # Data model: overview
 
-Every row belongs to one user. A log only points at a food and holds an amount in grams; the nutrients live on `foods` and the server calculates them. Nothing is deleted through the tools: logs, workouts and foods are archived.
+Every row belongs to one user. A log only points at a food and holds an amount in grams; the nutrients live on `foods` and the server calculates them. Nothing is deleted through the tools: logs, workouts, foods and daily target metrics are archived.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'ui-sans-serif, system-ui, sans-serif', 'fontSize': '14px', 'lineColor': '#64748b', 'primaryTextColor': '#0f172a'}}}%%
 flowchart LR
     users["<b>users</b><br/>who you are and your time zone"]
-    targets["<b>targets</b><br/>daily goals"]
+    targets["<b>daily_target_metrics</b><br/>a target, tolerance and direction<br/>per metric"]
     foods["<b>foods</b><br/>nutrients per 100 g<br/>also saved meals and Water"]
     fts["<b>foods_fts</b><br/>name search"]
     logs["<b>food_logs</b><br/>a food, grams and a meal"]
     workouts["<b>workouts</b><br/>a type, minutes, kcal and intensity"]
     requests["<b>request_log</b><br/>makes retries safe"]
 
-    users -->|"has one"| targets
+    users -->|"has many"| targets
     users -->|"owns many"| foods
     users -->|"owns many"| logs
     users -->|"owns many"| workouts
@@ -33,6 +33,6 @@ flowchart LR
     class requests auto
 ```
 
-All the fields are in [data model: all fields](data-model-fields.md). The schema itself is [`migrations/0001_schema.sql`](../../migrations/0001_schema.sql).
+All the fields are in [data model: all fields](data-model-fields.md). The schema itself is [`migrations/`](../../migrations/) (`0001_schema.sql`, `0002_daily_target_metrics.sql`).
 
 Colors: see the [legend](README.md#colors).

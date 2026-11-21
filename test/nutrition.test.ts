@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayTotals, mindfulnessFromStored, mindfulnessToStored, round1, roundKcal, roundNutrients, scale, sum } from "../src/nutrition";
+import { spec } from "./helpers";
 import { isValidDate, isValidTimeZone, localDate, localNoonUtc, localToUtc } from "../src/time";
 
 const yogurt = { kcal: 57, protein_g: 10.1, fat_g: 0, carbs_g: 4, fiber_g: 0, sugar_g: 4, added_sugar_g: 0, saturated_fat_g: 0, trans_fat_g: 0, cholesterol_mg: 5, sodium_mg: 36 };
@@ -46,13 +47,22 @@ describe("dayTotals", () => {
 		expect(d.remaining).toEqual({});
 	});
 	it("remaining is target minus the rounded eaten value, only for targets that are set", () => {
-		const d = dayTotals("2026-11-02", entries, { kcal: 2200, protein_g: 180, fat_max_g: 85, sodium_max_mg: 2300, carbs_g: null });
+		const d = dayTotals("2026-11-02", entries, { kcal: spec(2200), protein_g: spec(180, "at_least"), fat_g: spec(85, "at_most"), sodium_mg: spec(2300, "at_most") });
 		expect(d.remaining.kcal).toBe(2200 - d.eaten.kcal);
 		expect(d.remaining.protein_g).toBe(round1(180 - d.eaten.protein_g));
 		expect(d.remaining.fat_g).toBe(round1(85 - d.eaten.fat_g));
 		expect(d.remaining.sodium_mg).toBe(round1(2300 - d.eaten.sodium_mg));
 		expect("carbs_g" in d.remaining).toBe(false);
-		expect(d.targets).toEqual({ kcal: 2200, protein_g: 180, fat_max_g: 85, sodium_max_mg: 2300 });
+		expect(d.workout_kcal_burned).toBe(0);
+		expect(d.targets).toEqual({ kcal: 2200, protein_g: 180, fat_g: 85, sodium_mg: 2300 });
+	});
+});
+
+describe("dayTotals with workouts", () => {
+	it("remaining workout_kcal_burned is the target minus the rounded calories burned", () => {
+		const d = dayTotals("2026-11-02", [], { workout_kcal_burned: spec(500, "at_least") }, 0, 312.4);
+		expect(d.workout_kcal_burned).toBe(312);
+		expect(d.remaining.workout_kcal_burned).toBe(188);
 	});
 });
 
